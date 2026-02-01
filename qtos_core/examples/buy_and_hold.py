@@ -5,6 +5,8 @@ Emits a single buy signal for a fixed symbol on the first event it sees.
 No sizing logic—minimal illustration of the Strategy interface.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from qtos_core.events import Event

@@ -36,9 +36,37 @@ The design is ready for agents to sit *outside* the core:
 
 So agents *use* qtos-core; they are not *inside* it. The core stays minimal, testable, and deterministic.
 
+## Backtesting Framework
+
+A modular backtesting framework sits on top of the core engine. It loads OHLCV data (CSV or DataFrame), builds market events, runs your strategy and risk manager through the EventLoop, updates the portfolio on simulated fills, and computes performance metrics. No AI, Streamlit, or broker connectivity—purely deterministic backtesting and metrics collection.
+
+**Flow:** Load data → instantiate Portfolio, Strategy, RiskManager → feed market events to EventLoop → strategy emits signals → risk validates orders → portfolio and cash update on fills → collect trades and equity curve → compute metrics (final value, PnL, CAGR, Sharpe, max drawdown).
+
+**Agent integration:** The engine accepts optional **advisors** (modify signals before risk), **validators** (modify or reject orders after risk), and **observers** (post-trade callbacks). Agents such as MarketRegime, Sentiment, or CapitalGuardian can plug in as one of these without changing the core.
+
+**Usage:** Install with `pip install -e .` (pandas and numpy are required for backtesting). From the repo root, run the example with `PYTHONPATH=. python examples/buy_and_hold_backtest.py`.
+
+**Example snippet:**
+
+```python
+from backtesting import BacktestEngine, load_csv, print_report
+from backtesting.engine import PassThroughRiskManager
+from qtos_core import Portfolio
+from qtos_core.examples.buy_and_hold import BuyAndHoldStrategy
+
+data = load_csv("path/to/ohlcv.csv", symbol="SPY")
+portfolio = Portfolio(cash=100_000.0)
+strategy = BuyAndHoldStrategy(symbol="SPY", quantity=50)
+risk_manager = PassThroughRiskManager()
+engine = BacktestEngine(strategy, risk_manager, portfolio)
+result = engine.run(data, symbol="SPY")
+print_report(result, initial_value=100_000.0)
+```
+
 ## Requirements
 
 - Python 3.11+
+- pandas, numpy (for backtesting)
 
 ## Install
 
@@ -51,16 +79,27 @@ pip install -e .
 ## Layout
 
 ```
-qtos_core/
-  events.py      # Event base type
-  event_loop.py  # EventLoop (subscribe, dispatch, run)
-  signal.py      # Signal, Side
-  order.py       # Order, OrderType
-  portfolio.py   # Portfolio (cash, positions)
-  strategy.py    # Strategy ABC
-  risk.py        # RiskManager ABC
+qtos_core/           # Core engine
+  events.py          # Event base type
+  event_loop.py     # EventLoop (subscribe, dispatch, run)
+  signal.py         # Signal, Side
+  order.py          # Order, OrderType
+  portfolio.py      # Portfolio (cash, positions)
+  strategy.py       # Strategy ABC
+  risk.py           # RiskManager ABC
   examples/
-    buy_and_hold.py  # Minimal example strategy
+    buy_and_hold.py # Minimal example strategy
+
+backtesting/         # Backtesting framework
+  engine.py         # Orchestrates events through EventLoop; agent hooks
+  metrics.py        # PnL, Sharpe, drawdown, CAGR
+  data_loader.py    # Load CSV or DataFrame OHLCV
+  portfolio_report.py  # Print performance summary
+
+examples/            # Top-level examples
+  buy_and_hold_backtest.py  # Demo backtest
+  data/
+    sample_ohlcv.csv       # Sample price data
 ```
 
 ## Example

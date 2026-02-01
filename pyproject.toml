@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [
     { name = "QuantTradingOS" }
 ]
+dependencies = ["pandas>=1.5", "numpy>=1.22"]
 keywords = ["trading", "backtesting", "event-driven", "quant"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -26,7 +27,7 @@ dev = ["pytest>=7", "ruff>=0.1"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["qtos_core*"]
+include = ["qtos_core*", "backtesting*"]
 
 [tool.ruff]
 line-length = 100
