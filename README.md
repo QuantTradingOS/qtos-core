@@ -22,9 +22,9 @@ The package is designed so that backtests and later live wiring can share the sa
 - **No Streamlit / UI**: No dashboards or web apps. The core is a library.
 - **No broker integrations**: No order routing, no market data feeds, no FIX/REST. The core deals in events, signals, and orders as data; brokers are future adapters.
 - **No persistence**: No database or serialization. State lives in memory (e.g. `Portfolio`, `EventLoop`).
-- **No execution layer**: No fill simulation, no slippage model, no matching engine. Those belong in a separate layer that turns orders into events the core can consume.
+- **No live broker connectivity**: No order routing to real brokers yet. A **paper trading** execution layer is provided; live adapters (Alpaca, IBKR) are placeholders.
 
-So: the core is the *contract* and the *event loop*; execution, data, and UI are out of scope for this package.
+So: the core is the *contract* and the *event loop*; data and UI are out of scope. Execution exists as a broker-abstraction layer with paper support.
 
 ## How agents will integrate later
 
@@ -63,6 +63,45 @@ result = engine.run(data, symbol="SPY")
 print_report(result, initial_value=100_000.0)
 ```
 
+## Execution Layer
+
+A modular **execution layer** lets strategies run in **paper** or (future) **live** mode via a single broker abstraction. Same strategy interface as backtesting; swap paper/live by swapping the adapter.
+
+**BrokerAdapter interface** (`qtos_core.execution.broker`):
+
+- `submit_order(order: Order) -> OrderStatus` — Submit an order; paper adapter simulates fill at latest price.
+- `get_portfolio() -> PortfolioState` — Current cash and positions (snapshot).
+- `get_market_data(symbols: list[str]) -> DataFrame` — Latest market data for pricing; paper adapter uses injected source (e.g. dict of prices).
+
+**Paper trading:** `PaperBrokerAdapter` simulates fills in real time using latest market data (injected as a callable or `latest_prices` dict). No broker connection.
+
+**Live (future):** Implement `BrokerAdapter` for Alpaca, IBKR, etc.; the engine and strategy code stay unchanged. Placeholder comments live in `qtos_core/execution/broker.py`.
+
+**Agent integration:** Execution runs the same hooks as backtesting: **Advisors** (modify signals before risk), **Validators** (modify or reject orders after risk), **Observers** (post-trade callbacks). Same protocols; callables from backtesting can be reused.
+
+**Safety:** Optional **daily PnL limit**, **max position per trade**, and **kill switch**; rejected/blocked orders are logged via `get_rejected_log()`.
+
+**Usage:** Call `ExecutionEngine.run_once(symbols)` from a scheduler or loop; each call fetches market data, runs strategy → advisors → risk → validators → safety checks → submit → observers on fill.
+
+**Example snippet:**
+
+```python
+from qtos_core import Portfolio
+from qtos_core.examples.buy_and_hold import BuyAndHoldStrategy
+from qtos_core.execution import ExecutionEngine, PaperBrokerAdapter
+from backtesting.engine import PassThroughRiskManager
+
+broker = PaperBrokerAdapter(initial_cash=100_000.0, latest_prices={"SPY": 400.0})
+strategy = BuyAndHoldStrategy(symbol="SPY", quantity=50)
+engine = ExecutionEngine(strategy, PassThroughRiskManager(), broker,
+    advisors=[...], validators=[...], observers=[...],
+    daily_pnl_limit=5000.0, max_position_per_trade=200.0)
+engine.run_once(["SPY"])
+# Portfolio and order log: broker.get_portfolio(), broker.get_order_log()
+```
+
+Run the example: `PYTHONPATH=. python examples/paper_trading_example.py`.
+
 ## Requirements
 
 - Python 3.11+
@@ -81,23 +120,29 @@ pip install -e .
 ```
 qtos_core/           # Core engine
   events.py          # Event base type
-  event_loop.py     # EventLoop (subscribe, dispatch, run)
-  signal.py         # Signal, Side
-  order.py          # Order, OrderType
-  portfolio.py      # Portfolio (cash, positions)
-  strategy.py       # Strategy ABC
-  risk.py           # RiskManager ABC
+  event_loop.py      # EventLoop (subscribe, dispatch, run)
+  signal.py          # Signal, Side
+  order.py           # Order, OrderType
+  portfolio.py        # Portfolio (cash, positions)
+  strategy.py        # Strategy ABC
+  risk.py            # RiskManager ABC
+  execution/          # Execution layer
+    broker.py        # BrokerAdapter ABC; placeholders for Alpaca, IBKR
+    paper.py         # PaperBrokerAdapter (simulate fills)
+    engine.py        # ExecutionEngine (advisors, validators, observers, safety)
+    types.py         # OrderStatus, PortfolioState, ExecutedTrade
   examples/
-    buy_and_hold.py # Minimal example strategy
+    buy_and_hold.py  # Minimal example strategy
 
 backtesting/         # Backtesting framework
-  engine.py         # Orchestrates events through EventLoop; agent hooks
-  metrics.py        # PnL, Sharpe, drawdown, CAGR
-  data_loader.py    # Load CSV or DataFrame OHLCV
+  engine.py          # Orchestrates events through EventLoop; agent hooks
+  metrics.py         # PnL, Sharpe, drawdown, CAGR
+  data_loader.py     # Load CSV or DataFrame OHLCV
   portfolio_report.py  # Print performance summary
 
 examples/            # Top-level examples
   buy_and_hold_backtest.py  # Demo backtest
+  paper_trading_example.py  # Paper execution with advisors/validators/observers
   data/
     sample_ohlcv.csv       # Sample price data
 ```
