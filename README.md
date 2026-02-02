@@ -144,6 +144,22 @@ From the repo root:
 pip install -e .
 ```
 
+For development and tests:
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Tests
+
+From the `qtos-core` directory:
+
+```bash
+pytest tests/ -v
+```
+
+Tests cover the core (Event, EventLoop, Portfolio, Signal, Order, BuyAndHoldStrategy), backtesting (BacktestEngine, PassThroughRiskManager, metrics, data_loader), and execution (PaperBrokerAdapter, ExecutionEngine). Optional: `test_load_csv_uses_sample_data` requires `examples/data/sample_ohlcv.csv`; it is skipped if the file is missing.
+
 ## Layout
 
 ```
@@ -176,6 +192,12 @@ examples/            # Top-level examples
   live_trading_example.py   # LiveBrokerAdapter in sandbox; swap Paper → Live adapter
   data/
     sample_ohlcv.csv       # Sample price data
+
+tests/               # Pytest suite
+  test_core.py       # Event, EventLoop, Portfolio, Signal, Order, BuyAndHoldStrategy
+  test_backtest.py   # BacktestEngine, PassThroughRiskManager, metrics
+  test_data_loader.py # load_csv, load_dataframe
+  test_execution.py  # PaperBrokerAdapter, ExecutionEngine
 ```
 
 ## Example
