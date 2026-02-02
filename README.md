@@ -75,7 +75,36 @@ A modular **execution layer** lets strategies run in **paper** or (future) **liv
 
 **Paper trading:** `PaperBrokerAdapter` simulates fills in real time using latest market data (injected as a callable or `latest_prices` dict). No broker connection.
 
-**Live (future):** Implement `BrokerAdapter` for Alpaca, IBKR, etc.; the engine and strategy code stay unchanged. Placeholder comments live in `qtos_core/execution/broker.py`.
+**Live execution:** `LiveBrokerAdapter` plugs into the same `ExecutionEngine` and implements `BrokerAdapter`. It is **sandbox-first**: `sandbox=True` (default) uses the broker’s paper/sandbox endpoint; no real money. Real live orders are blocked unless the environment variable `QTOS_LIVE_TRADING_ENABLED` is set to `"true"`. You swap adapters without changing strategies, agents, or engine logic—e.g. pass `PaperBrokerAdapter` for paper and `LiveBrokerAdapter` for live (or live sandbox).
+
+- **Sandbox vs live:** With `sandbox=True`, all orders go to the broker’s paper/sandbox API. With `sandbox=False`, orders are real; the adapter refuses to submit unless `QTOS_LIVE_TRADING_ENABLED=true`.
+- **Safety gate:** To avoid accidental live trading, the adapter rejects non-sandbox orders when `QTOS_LIVE_TRADING_ENABLED` is not exactly `"true"`.
+- **Swapping adapters:** Use the same `ExecutionEngine` constructor; only the `broker` argument changes (e.g. `broker=PaperBrokerAdapter(...)` vs `broker=LiveBrokerAdapter(..., sandbox=True)`).
+
+**Example snippet (live sandbox):**
+
+```python
+from qtos_core.execution import ExecutionEngine, LiveBrokerAdapter
+from qtos_core.examples.buy_and_hold import BuyAndHoldStrategy
+from backtesting.engine import PassThroughRiskManager
+
+broker = LiveBrokerAdapter(
+    api_key="your_key",
+    api_secret="your_secret",
+    sandbox=True,  # default: paper endpoint
+    initial_cash=100_000.0,
+    market_data_source=lambda syms: your_market_data_fn(syms),
+)
+engine = ExecutionEngine(
+    BuyAndHoldStrategy(symbol="SPY", quantity=50),
+    PassThroughRiskManager(),
+    broker,
+)
+engine.run_once(["SPY"])
+# broker.get_portfolio(), same interface as PaperBrokerAdapter
+```
+
+**Live (future):** Replace placeholders in `qtos_core/execution/live.py` with real broker SDK calls (Alpaca, IBKR, Binance, etc.); the adapter interface and engine stay unchanged.
 
 **Agent integration:** Execution runs the same hooks as backtesting: **Advisors** (modify signals before risk), **Validators** (modify or reject orders after risk), **Observers** (post-trade callbacks). Same protocols; callables from backtesting can be reused.
 
@@ -100,7 +129,7 @@ engine.run_once(["SPY"])
 # Portfolio and order log: broker.get_portfolio(), broker.get_order_log()
 ```
 
-Run the example: `PYTHONPATH=. python examples/paper_trading_example.py`.
+Run the examples: `PYTHONPATH=. python examples/paper_trading_example.py` or `PYTHONPATH=. python examples/live_trading_example.py`.
 
 ## Requirements
 
@@ -129,6 +158,7 @@ qtos_core/           # Core engine
   execution/          # Execution layer
     broker.py        # BrokerAdapter ABC; placeholders for Alpaca, IBKR
     paper.py         # PaperBrokerAdapter (simulate fills)
+    live.py          # LiveBrokerAdapter (sandbox-first; real broker API placeholders)
     engine.py        # ExecutionEngine (advisors, validators, observers, safety)
     types.py         # OrderStatus, PortfolioState, ExecutedTrade
   examples/
@@ -143,6 +173,7 @@ backtesting/         # Backtesting framework
 examples/            # Top-level examples
   buy_and_hold_backtest.py  # Demo backtest
   paper_trading_example.py  # Paper execution with advisors/validators/observers
+  live_trading_example.py   # LiveBrokerAdapter in sandbox; swap Paper → Live adapter
   data/
     sample_ohlcv.csv       # Sample price data
 ```

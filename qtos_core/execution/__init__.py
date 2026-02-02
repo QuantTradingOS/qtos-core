@@ -6,6 +6,7 @@ Agent hooks: Advisors, Validators, Observers (compatible with backtesting protoc
 """
 
 from qtos_core.execution.broker import BrokerAdapter
+from qtos_core.execution.live import LiveBrokerAdapter
 from qtos_core.execution.paper import PaperBrokerAdapter
 from qtos_core.execution.engine import ExecutionEngine, RejectedOrderLog
 from qtos_core.execution.types import ExecutedTrade, OrderStatus, OrderStatusKind, PortfolioState
@@ -16,6 +17,7 @@ __all__ = [
     "OrderStatusKind",
     "PortfolioState",
     "PaperBrokerAdapter",
+    "LiveBrokerAdapter",
     "ExecutionEngine",
     "ExecutedTrade",
     "RejectedOrderLog",
