@@ -36,6 +36,32 @@ The design is ready for agents to sit *outside* the core:
 
 So agents *use* qtos-core; they are not *inside* it. The core stays minimal, testable, and deterministic.
 
+## Getting Started
+
+### Run your first backtest
+
+**Prerequisites:** Python 3.10+, pandas, numpy. Install qtos-core: `pip install -e .` (or `pip install -r requirements.txt` if you have a requirements.txt).
+
+**Steps:**
+
+1. **Clone qtos-core** (or ensure it's in your workspace):
+   ```bash
+   git clone https://github.com/QuantTradingOS/qtos-core.git
+   cd qtos-core
+   pip install -e .
+   ```
+
+2. **Run the example backtest:**
+   ```bash
+   PYTHONPATH=. python examples/buy_and_hold_backtest.py
+   ```
+
+   This runs a buy-and-hold strategy on sample data (`examples/data/sample_ohlcv.csv`) and prints metrics (PnL, Sharpe, CAGR, max drawdown).
+
+3. **What happened:** The example loads OHLCV data, creates a `BuyAndHoldStrategy` (buys 50 shares of SPY), runs it through the `BacktestEngine` with a `PassThroughRiskManager`, simulates fills, updates the portfolio, and computes performance metrics.
+
+4. **Next:** Modify `examples/buy_and_hold_backtest.py` to use your own CSV data or strategy, or write a custom strategy that implements `Strategy.on_event()`.
+
 ## Backtesting Framework
 
 A modular backtesting framework sits on top of the core engine. It loads OHLCV data (CSV or DataFrame), builds market events, runs your strategy and risk manager through the EventLoop, updates the portfolio on simulated fills, and computes performance metrics. No AI, Streamlit, or broker connectivity—purely deterministic backtesting and metrics collection.
